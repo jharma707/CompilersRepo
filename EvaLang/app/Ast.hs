@@ -17,5 +17,5 @@ toOp :: Char -> BinaryOp
 toOp '+' = Plus
 toOp '-' = Minus
 toOp '*' = Multiply
-toOp '-' = Divide
+toOp '/' = Divide
 toOp _   = error "unreachable"
