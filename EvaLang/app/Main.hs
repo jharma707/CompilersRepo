@@ -3,6 +3,9 @@
 module Main (main) where
 
 import Parser
+import Backend.TreeWalkInterpreter
 
 main :: IO ()
-main = print $ parseEva "\"Eva\"; 42; \n42; { \"jordan\"; 69;; { (2 + 3) * 5; 4 + 1 * 3 + 0; 1 + 2 + 3; } } "
+main = case (parseEva "4 * (1 + 2); ") of
+         (Left err)  -> print err
+         (Right res) -> print $ interpretEvaAst res
