@@ -1,6 +1,6 @@
 module Parser (parseEva) where
 
-import Ast
+import Backend.Ast
 
 import Control.Arrow
 import qualified Data.Text as T
