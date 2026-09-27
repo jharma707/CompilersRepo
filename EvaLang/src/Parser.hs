@@ -43,10 +43,10 @@ evaBinaryExpression = addExpr where
   expr :: String -> Parser EvaAst -> Parser EvaAst
   expr ops subexpr = do
     leftExpr  <- subexpr
-    restExprs <- many $ (\op a b -> EvaBinaryExpr op b a) <$> binaryOp ops <*> subexpr
+    restExprs <- many $ (\op a b -> EvaBinaryExpr op b a) <$> (binaryOp ops <* spaces) <*> subexpr
     return $ foldl (&) leftExpr restExprs
 
-  binaryOp ops = (try (spaces *> choice (char <$> ops) <* spaces)) >>= toOp
+  binaryOp ops = (try (choice (char <$> ops))) >>= toOp
 
   addExpr = expr "+-" multExpr
   multExpr = expr "*/" primaryExpr
@@ -54,7 +54,7 @@ evaBinaryExpression = addExpr where
   parenExpr = char '(' *> spaces *> evaExpression <* spaces <* char ')'
 
 evaLiteral :: Parser EvaAst
-evaLiteral = choice [evaNumber, evaString]
+evaLiteral = choice [evaNumber, evaString] <* spaces
 
 evaNumber :: Parser EvaAst
 evaNumber = (read >>> EvaNumber) <$> many1 digit
@@ -66,6 +66,6 @@ evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ non
 toOp :: Char -> Parser BinaryOp
 toOp '+' = return Plus
 toOp '-' = return Minus
-toOp '*' = return Multiply
+-- toOp '*' = return Multiply
 toOp '/' = return Divide
 toOp op  = parserFail $ "unexpected binary expression: " <> [op]
