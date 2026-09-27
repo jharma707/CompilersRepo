@@ -49,7 +49,7 @@ library
     hs-source-dirs:   src
 
     exposed-modules:  Parser
-                    , Backend.Ast
+                    , Ast
                     , Backend.TreeWalkInterpreter
 
     build-depends:    base   ^>= 4.20.2.0

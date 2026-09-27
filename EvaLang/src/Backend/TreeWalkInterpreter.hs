@@ -1,7 +1,7 @@
 -- A very basic tree walk interpreter for testing purposes.
 module Backend.TreeWalkInterpreter where
 
-import Backend.Ast
+import Ast
 import qualified Data.Text as T
 import qualified GHC.List as L
 

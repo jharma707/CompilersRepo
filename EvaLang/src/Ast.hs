@@ -1,4 +1,4 @@
-module Backend.Ast where
+module Ast where
 
 import Data.Text
 

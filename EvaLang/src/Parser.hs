@@ -1,6 +1,6 @@
 module Parser (parseEva) where
 
-import Backend.Ast
+import Ast
 
 import Control.Arrow
 import qualified Data.Text as T
@@ -66,6 +66,6 @@ evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ non
 toOp :: Char -> Parser BinaryOp
 toOp '+' = return Plus
 toOp '-' = return Minus
--- toOp '*' = return Multiply
+toOp '*' = return Multiply
 toOp '/' = return Divide
 toOp op  = parserFail $ "unexpected binary expression: " <> [op]
