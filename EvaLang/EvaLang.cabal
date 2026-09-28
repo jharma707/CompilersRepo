@@ -42,7 +42,7 @@ extra-doc-files:    CHANGELOG.md
 -- extra-source-files:
 
 common warnings
-    ghc-options: -Wall
+    ghc-options: -Wall -Wno-missing-signatures
 
 library
     import:           warnings
@@ -72,7 +72,9 @@ executable EvaLang
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>= 4.20.2.0
+    build-depends:    base   ^>= 4.20.2.0
+                    , text   ^>= 2.1.4
+                    , parsec ^>= 3.1.18.0
                     , EvaLang
 
     -- Directories containing source files.
