@@ -30,7 +30,11 @@ evaStatement = choice
 
 evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
 
-evaExpr = evaArithmetic
+evaExpr = evaAssignment
+
+evaAssignment = evaArithmetic <|> assignExpr where
+  assignExpr = (T.pack >>> EvaAssign) <$> (evaIdentifier <* assignOp) <*> evaAssignment
+  assignOp = spaces <* char '=' <* spaces
 
 evaArithmetic = term where
   arithmetic ops subexpr = do
@@ -43,12 +47,13 @@ evaArithmetic = term where
   factor = arithmetic factorOps evaUnary
 
 evaUnary = unaryOp <|> evaPrimary where
-  unaryOp = EvaUnaryExpr <$> ((try (unaryOps <* spaces)) >>= toUnaryOp) <*> evaUnary
+  unaryOp = EvaUnaryExpr <$> (try (unaryOps <* spaces) >>= toUnaryOp) <*> evaUnary
 
 evaPrimary = choice [evaLiteral, evaParen]
 evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
 
 evaLiteral = choice [evaNumber, evaString]
+evaIdentifier = (:) <$> letter <*> many (choice [char '_', letter, digit])
 evaNumber = (read >>> EvaNumber) <$> many1 digit
 evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
 

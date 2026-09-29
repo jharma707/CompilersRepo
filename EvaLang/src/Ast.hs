@@ -10,6 +10,7 @@ data EvaAst
   | EvaEmptyStatement
   | EvaBinaryExpr     BinaryOp EvaAst EvaAst
   | EvaUnaryExpr      UnaryOp EvaAst
+  | EvaAssign         Text EvaAst
   deriving (Show, Eq)
 
 data BinaryOp = Plus | Minus | Multiply | Divide deriving (Show, Eq)

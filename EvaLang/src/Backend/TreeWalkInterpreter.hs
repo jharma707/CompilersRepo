@@ -38,8 +38,10 @@ interpretEvaAst (EvaBinaryExpr op a b) =
   execBinaryOp Multiply (VInt i) (VInt j) = VInt $ i * j
   execBinaryOp Divide (VInt i) (VInt j) = VInt $ i `div` j -- catch divide by zero errors
   execBinaryOp Plus (VString str1) (VString str2) = VString $ str1 `T.append` str2
-  execBinaryOp op v1 v2 = error "type error: binary operator on invalid expression"
+  execBinaryOp _ _ _ = error "type error: binary operator on invalid expression"
 interpretEvaAst (EvaUnaryExpr Negative a) =
   case interpretEvaAst a of
     (VInt i) -> VInt $ -i
     _        -> error "type error: unary operator on invalid expression"
+-- for now. TODO: save the value into the environment
+interpretEvaAst (EvaAssign _ v) = interpretEvaAst v
