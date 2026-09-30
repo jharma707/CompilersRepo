@@ -15,5 +15,8 @@ data EvaAst
   | EvaIfStatement    EvaAst EvaAst (Maybe EvaAst)
   deriving (Show, Eq)
 
-data BinaryOp = Plus | Minus | Multiply | Divide deriving (Show, Eq)
+data BinaryOp
+  = Plus | Minus | Multiply | Divide
+  | Greater | GreaterEq | Less | LessEq
+  deriving (Show, Eq)
 data UnaryOp  = Negative deriving (Show, Eq)

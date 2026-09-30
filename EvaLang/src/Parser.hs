@@ -49,7 +49,7 @@ evaVariableStatement = do
 
 evaVar = T.pack <$> evaIdentifier <* spaces
 evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
-evaAssignment = evaArithmetic <|> evaSimpleAssignment where
+evaAssignment = evaRelational <|> evaSimpleAssignment where
   evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
 
 evaIfStatement = do
@@ -58,15 +58,16 @@ evaIfStatement = do
   alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
   return $ EvaIfStatement condition consequent alternate
 
-evaArithmetic = term where
-  arithmetic ops subexpr = do
+evaRelational = relation where
+  binary ops subexpr = do
     leftExpr  <- subexpr <* spaces
     restExprs <- many $ leftAssociative <$> ((try ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
     return $ foldl (&) leftExpr restExprs
 
   leftAssociative = EvaBinaryExpr >>> flip
-  term   = arithmetic termOps factor
-  factor = arithmetic factorOps evaUnary
+  relation = binary relationalOps term
+  term     = binary termOps factor
+  factor   = binary factorOps evaUnary
 
 evaUnary = unaryOp <|> evaPrimary where
   unaryOp = EvaUnaryExpr <$> (try (unaryOps <* spaces) >>= toUnaryOp) <*> evaUnary
@@ -86,17 +87,22 @@ evaNumber = (read >>> EvaNumber) <$> many1 digit
 evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
 
 -- helper functions
-termOps   = choice $ char <$> "+-"
-factorOps = choice $ char <$> "*/"
-unaryOps  = choice $ char <$> "-"
+relationalOps = choice $ string <$> ["<", "<=", ">", ">="]
+termOps       = choice $ string <$> ["+", "-"]
+factorOps     = choice $ string <$> ["*", "/"]
+unaryOps      = choice $ string <$> ["-"]
 
-toBinaryOp :: Char -> Parser BinaryOp
-toBinaryOp '+'  = return Plus
-toBinaryOp '-'  = return Minus
-toBinaryOp '*'  = return Multiply
-toBinaryOp '/'  = return Divide
-toBinaryOp oper = parserFail $ "unexpected binary expression: " <> [oper]
+toBinaryOp :: String -> Parser BinaryOp
+toBinaryOp "+"  = return Plus
+toBinaryOp "-"  = return Minus
+toBinaryOp "*"  = return Multiply
+toBinaryOp "/"  = return Divide
+toBinaryOp "<"  = return Less
+toBinaryOp ">"  = return Greater
+toBinaryOp "<=" = return LessEq
+toBinaryOp ">=" = return GreaterEq
+toBinaryOp oper = parserFail $ "unexpected binary expression: " <> oper
 
-toUnaryOp :: Char -> Parser UnaryOp
-toUnaryOp '-'  = return Negative
-toUnaryOp oper = parserFail $ "unexpected unary expression: " <> [oper]
+toUnaryOp :: String -> Parser UnaryOp
+toUnaryOp "-"  = return Negative
+toUnaryOp oper = parserFail $ "unexpected unary expression: " <> oper
