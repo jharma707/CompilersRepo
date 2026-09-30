@@ -15,7 +15,7 @@ evaProgram :: Parser EvaAst
 evaProgram = evaStatementList
 
 keywords = ["let"]
-evaKeywordLet = try $ string "let" >> (notFollowedBy evaValidIdChars)
+evaKeywordLet = string "let" >> (notFollowedBy evaValidIdChars)
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 
@@ -26,21 +26,15 @@ evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
 evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
 
 evaStatement = choice
-  [ evaExprStatement
-  , evaVariableStatement
+  [ evaVariableStatement
+  , evaExprStatement
   , evaBlock
   , evaEmptyStatement
   ]
 
 evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
-
 evaExpr = evaAssignment
 
--- let x, y;
--- let x = 3;
--- let x = 3, y = 3;
--- let x, y = 3;
--- let foo = bar = 10;
 evaVariableStatement = do
   _       <- evaKeywordLet <* spaces
   varDecs <- sepBy1 varDeclaration (char ',' <* spaces)
@@ -48,7 +42,7 @@ evaVariableStatement = do
   return $ EvaLetDeclaration varDecs where
     varDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
 
-evaVar = T.pack <$> (try evaIdentifier) <* spaces
+evaVar = T.pack <$> evaIdentifier <* spaces
 evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
 evaAssignment = evaArithmetic <|> evaSimpleAssignment where
   evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
