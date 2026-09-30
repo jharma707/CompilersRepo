@@ -26,8 +26,8 @@ evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
 evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
 
 evaStatement = choice
-  [ evaVariableStatement
-  , evaExprStatement
+  [ evaExprStatement
+  , evaVariableStatement
   , evaBlock
   , evaEmptyStatement
   ]
@@ -48,7 +48,7 @@ evaVariableStatement = do
   return $ EvaLetDeclaration varDecs where
     varDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
 
-evaVar = T.pack <$> evaIdentifier <* spaces
+evaVar = T.pack <$> (try evaIdentifier) <* spaces
 evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
 evaAssignment = evaArithmetic <|> evaSimpleAssignment where
   evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
@@ -69,9 +69,13 @@ evaUnary = unaryOp <|> evaPrimary where
 evaPrimary = choice [evaLiteral, evaParen]
 evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
 
+evaIdentifier = do
+  identifier <- (:) <$> letter <*> many evaValidIdChars
+  if identifier `elem` keywords
+  then parserFail ("invalid identifier " <> show identifier)
+  else return identifier
+
 evaLiteral = choice [evaNumber, evaString]
--- TODO: check that it's not a keyword
-evaIdentifier = (:) <$> letter <*> many evaValidIdChars
 evaValidIdChars = choice [char '_', letter, digit]
 evaNumber = (read >>> EvaNumber) <$> many1 digit
 evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
