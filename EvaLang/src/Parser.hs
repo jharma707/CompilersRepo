@@ -8,14 +8,18 @@ import Data.Function
 import Text.Parsec
 import Text.Parsec.Text (Parser)
 
+keywords = ["let", "if", "else"]
+
 parseEva :: T.Text -> Either ParseError EvaAst
 parseEva = parse evaProgram ""
 
 evaProgram :: Parser EvaAst
 evaProgram = evaStatementList
 
-keywords = ["let"]
-evaKeywordLet = string "let" >> (notFollowedBy evaValidIdChars)
+keyword str = string str >> (notFollowedBy evaValidIdChars)
+evaKeywordLet   = keyword "let"
+evaKeywordIf    = keyword "if"
+evaKeywordElse  = keyword "else"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 
@@ -27,6 +31,7 @@ evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
 
 evaStatement = choice
   [ evaVariableStatement
+  , evaIfStatement
   , evaExprStatement
   , evaBlock
   , evaEmptyStatement
@@ -47,6 +52,12 @@ evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
 evaAssignment = evaArithmetic <|> evaSimpleAssignment where
   evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
 
+evaIfStatement = do
+  condition  <- evaKeywordIf *> spaces *> char '(' *> spaces *> evaExpr <* spaces <* char ')' <* spaces
+  consequent <- evaStatement <* spaces
+  alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
+  return $ EvaIfStatement condition consequent alternate
+
 evaArithmetic = term where
   arithmetic ops subexpr = do
     leftExpr  <- subexpr <* spaces
@@ -66,7 +77,7 @@ evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
 evaIdentifier = do
   identifier <- (:) <$> letter <*> many evaValidIdChars
   if identifier `elem` keywords
-  then parserFail ("invalid identifier " <> show identifier)
+  then parserFail $ show identifier <> " is a reserved keyword and can't be used as an identifier."
   else return identifier
 
 evaLiteral = choice [evaNumber, evaString]

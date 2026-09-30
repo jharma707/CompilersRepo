@@ -12,6 +12,7 @@ data EvaAst
   | EvaUnaryExpr      UnaryOp EvaAst
   | EvaAssign         Text EvaAst
   | EvaLetDeclaration [(Text, Maybe EvaAst)]
+  | EvaIfStatement    EvaAst EvaAst (Maybe EvaAst)
   deriving (Show, Eq)
 
 data BinaryOp = Plus | Minus | Multiply | Divide deriving (Show, Eq)
