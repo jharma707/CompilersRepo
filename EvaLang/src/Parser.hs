@@ -14,6 +14,9 @@ parseEva = parse evaProgram ""
 evaProgram :: Parser EvaAst
 evaProgram = evaStatementList
 
+keywords = ["let"]
+evaKeywordLet = try $ string "let" >> (notFollowedBy evaValidIdChars)
+
 evaStatementList = EvaStatements <$> many1 evaStatement
 
 evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
@@ -23,7 +26,8 @@ evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
 evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
 
 evaStatement = choice
-  [ evaExprStatement
+  [ evaVariableStatement
+  , evaExprStatement
   , evaBlock
   , evaEmptyStatement
   ]
@@ -32,9 +36,22 @@ evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
 
 evaExpr = evaAssignment
 
-evaAssignment = evaArithmetic <|> assignExpr where
-  assignExpr = (T.pack >>> EvaAssign) <$> (evaIdentifier <* assignOp) <*> evaAssignment
-  assignOp = spaces <* char '=' <* spaces
+-- let x, y;
+-- let x = 3;
+-- let x = 3, y = 3;
+-- let x, y = 3;
+-- let foo = bar = 10;
+evaVariableStatement = do
+  _       <- evaKeywordLet <* spaces
+  varDecs <- sepBy1 varDeclaration (char ',' <* spaces)
+  _       <- char ';' <* spaces
+  return $ EvaLetDeclaration varDecs where
+    varDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
+
+evaVar = T.pack <$> evaIdentifier <* spaces
+evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
+evaAssignment = evaArithmetic <|> evaSimpleAssignment where
+  evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
 
 evaArithmetic = term where
   arithmetic ops subexpr = do
@@ -42,7 +59,7 @@ evaArithmetic = term where
     restExprs <- many $ leftAssociative <$> ((try ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
     return $ foldl (&) leftExpr restExprs
 
-  leftAssociative op = flip $ EvaBinaryExpr op
+  leftAssociative = EvaBinaryExpr >>> flip
   term   = arithmetic termOps factor
   factor = arithmetic factorOps evaUnary
 
@@ -53,7 +70,9 @@ evaPrimary = choice [evaLiteral, evaParen]
 evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
 
 evaLiteral = choice [evaNumber, evaString]
-evaIdentifier = (:) <$> letter <*> many (choice [char '_', letter, digit])
+-- TODO: check that it's not a keyword
+evaIdentifier = (:) <$> letter <*> many evaValidIdChars
+evaValidIdChars = choice [char '_', letter, digit]
 evaNumber = (read >>> EvaNumber) <$> many1 digit
 evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
 
