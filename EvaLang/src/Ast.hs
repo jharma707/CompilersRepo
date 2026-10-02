@@ -5,6 +5,7 @@ import Data.Text
 data EvaAst
   = EvaNumber         Integer
   | EvaString         Text
+  | EvaBool           Bool
   | EvaStatements     [EvaAst]
   | EvaBlock          [EvaAst]
   | EvaEmptyStatement
@@ -18,5 +19,6 @@ data EvaAst
 data BinaryOp
   = Plus | Minus | Multiply | Divide
   | Greater | GreaterEq | Less | LessEq
+  | Equality | And | Or
   deriving (Show, Eq)
 data UnaryOp  = Negative deriving (Show, Eq)
