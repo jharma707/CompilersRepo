@@ -69,7 +69,7 @@ evaRelational = boolOr where
   leftAssociative = EvaBinaryExpr >>> flip
   boolOr   = binary (opers ["||"]) boolAnd
   boolAnd  = binary (opers ["&&"]) equality
-  equality = binary (opers ["=="]) relation
+  equality = binary (opers ["==", "!="]) relation
   relation = binary (opers ["<=", ">=", "<", ">"]) term
   term     = binary (opers ["+", "-"]) factor
   factor   = binary (opers ["*", "/"]) evaUnary
