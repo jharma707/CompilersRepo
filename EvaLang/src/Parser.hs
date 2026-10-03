@@ -24,9 +24,9 @@ parseEva :: T.Text -> Either ParseError EvaAst
 parseEva = parse evaProgram ""
 
 evaProgram :: Parser EvaAst
-evaProgram = evaStatementList
+evaProgram = EvaProgram <$> (spaces *> evaStatementList)
 
-keyword str = string str <* (notFollowedBy evaValidIdChars)
+keyword str = lexeme $ string str <* (notFollowedBy evaValidIdChars)
 evaKeywordLet   = keyword "let"
 evaKeywordIf    = keyword "if"
 evaKeywordElse  = keyword "else"
@@ -39,11 +39,9 @@ evaKeywordFor   = keyword "for"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 
-evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
-  start = char '{' <* spaces
-  end   = char '}' <* spaces
+evaBlock = EvaBlock <$> (between openBrace closeBrace (many evaStatement)) where
 
-evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
+evaEmptyStatement = const EvaEmptyStatement <$> semicolon
 
 evaStatement = choice
   [ evaLetStatement
@@ -56,46 +54,46 @@ evaStatement = choice
   , evaEmptyStatement
   ]
 
-evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
+evaExprStatement = evaExpr <* semicolon
 
 evaExpr = evaAssignment
 
-evaLetStatement = evaLetBindings <* char ';' <* spaces
-evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> spaces *> (sepBy1 evaVarDeclaration (char ',' <* spaces)))
+evaLetStatement = evaLetBindings <* semicolon
+evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> spaces *> (sepBy1 evaVarDeclaration comma))
 evaVarDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
 
 evaVar = evaIdentifier <* spaces
-evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
+evaVarInitializer = assign *> evaAssignment <* spaces
 evaAssignment = simpleAssignment <|> evaBinary where
  simpleAssignment  = try $ EvaAssign <$> evaVar <*> evaVarInitializer
 
 evaIfStatement = do
-  condition  <- evaKeywordIf *> spaces *> char '(' *> spaces *> evaExpr <* spaces <* char ')' <* spaces
+  condition  <- evaKeywordIf *> between openParen closeParen evaExpr
   consequent <- evaStatement <* spaces
   alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
   return $ EvaIfStatement condition consequent alternate
 
 evaWhileStatement = do
-  _         <- evaKeywordWhile <* spaces <* char '(' <* spaces
-  condition <- evaExpr <* spaces <* char ')' <* spaces
+  _         <- evaKeywordWhile <* openParen
+  condition <- evaExpr <* closeParen
   block     <- evaBlock <* spaces
   return $ EvaWhileLoop condition block
 
 evaDoWhileStatement = do
   _         <- evaKeywordDo <* spaces
   block     <- evaBlock <* spaces
-  _         <- evaKeywordWhile <* spaces <* char '(' <* spaces
-  condition <- evaExpr <* spaces <* char ')' <* spaces <* char ';' <* spaces
+  _         <- evaKeywordWhile <* openParen
+  condition <- evaExpr <* closeParen <* semicolon
   return $ EvaDoWhileLoop condition block
 
 evaForStatement = do
-  _                <- evaKeywordFor <* spaces <* char '(' <* spaces
-  maybeAssignments <- (optionMaybe (evaLetBindings <|> sequenceExpr)) <* char ';' <* spaces
-  maybeCondition   <- (optionMaybe evaExpr) <* spaces <* char ';' <* spaces
-  maybeIncrementer <- (optionMaybe evaExpr) <* spaces <* char ')' <* spaces
+  _                <- evaKeywordFor <* openParen
+  maybeAssignments <- (optionMaybe (evaLetBindings <|> sequenceExpr)) <* semicolon
+  maybeCondition   <- (optionMaybe evaExpr) <* semicolon
+  maybeIncrementer <- (optionMaybe evaExpr) <* closeParen
   block            <- evaBlock <* spaces
   return $ EvaForLoop maybeAssignments maybeCondition maybeIncrementer block where
-    sequenceExpr = EvaSequenceExpr <$> (sepBy1 evaExpr (spaces *> char ',' <* spaces))
+    sequenceExpr = EvaSequenceExpr <$> (sepBy1 evaExpr comma)
 
 evaBinary = boolOr where
   binary ops subexpr = do
@@ -116,24 +114,33 @@ evaUnary = unary <|> evaPrimary where
   operators = opers ["-", "+", "!"]
 
 evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
-evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
+evaParen = between openParen closeParen evaExpr
 
 evaIdentifier = do
-  identifier <- (:) <$> letter <*> many evaValidIdChars
+  identifier <- lexeme $ (:) <$> letter <*> many evaValidIdChars
   if identifier `elem` keywords
   then parserFail $ show identifier <> " is a reserved keyword and can't be used as an identifier."
   else return $ EvaIdentifier $ T.pack identifier
 
 evaValidIdChars = choice [char '_', letter, digit]
 
-evaLiteral = choice [evaNumber, evaString, evaBool, evaNull]
+evaLiteral = lexeme $ choice [evaNumber, evaString, evaBool, evaNull]
 evaNumber  = (read >>> EvaNumber) <$> many1 digit
 evaString  = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
 evaBool    = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
 evaNull    = const EvaNull <$> evaKeywordNull
 
 -- helper functions
-opers ops = choice $ try . string <$> ops
+opers ops = lexeme $ choice $ try . string <$> ops
+
+lexeme p = p <* spaces
+comma = lexeme $ char ','
+openParen = lexeme $ char '('
+closeParen = lexeme $ char ')'
+semicolon = lexeme $ char ';'
+assign = lexeme $ char '='
+openBrace = lexeme $ char '{'
+closeBrace = lexeme $ char '}'
 
 toBinaryOp :: String -> Parser BinaryOp
 toBinaryOp "+"  = return Plus

@@ -3,7 +3,8 @@ module Ast where
 import Data.Text
 
 data EvaAst
-  = EvaNumber         Integer
+  = EvaProgram        EvaAst
+  | EvaNumber         Integer
   | EvaString         Text
   | EvaBool           Bool
   | EvaNull
