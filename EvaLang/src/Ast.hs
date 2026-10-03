@@ -16,6 +16,10 @@ data EvaAst
   | EvaIdentifier     Text
   | EvaLetDeclaration [(EvaAst, Maybe EvaAst)]
   | EvaIfStatement    EvaAst EvaAst (Maybe EvaAst)
+  | EvaWhileLoop      EvaAst EvaAst
+  | EvaDoWhileLoop    EvaAst EvaAst
+  | EvaForLoop        (Maybe EvaAst) (Maybe EvaAst) (Maybe EvaAst) EvaAst
+  | EvaSequenceExpr   [EvaAst]
   deriving (Show, Eq)
 
 data BinaryOp

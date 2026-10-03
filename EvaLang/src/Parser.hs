@@ -15,6 +15,9 @@ keywords =
   , "true"
   , "false"
   , "null"
+  , "while"
+  , "do"
+  , "for"
   ]
 
 parseEva :: T.Text -> Either ParseError EvaAst
@@ -30,6 +33,9 @@ evaKeywordElse  = keyword "else"
 evaKeywordTrue  = keyword "true"
 evaKeywordFalse = keyword "false"
 evaKeywordNull  = keyword "null"
+evaKeywordWhile = keyword "while"
+evaKeywordDo    = keyword "do"
+evaKeywordFor   = keyword "for"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 
@@ -40,8 +46,11 @@ evaBlock = EvaBlock <$> (between start end (many evaStatement)) where
 evaEmptyStatement = const EvaEmptyStatement <$> (char ';' <* spaces)
 
 evaStatement = choice
-  [ evaVariableStatement
+  [ evaLetStatement
   , evaIfStatement
+  , evaWhileStatement
+  , evaForStatement
+  , evaDoWhileStatement
   , evaExprStatement
   , evaBlock
   , evaEmptyStatement
@@ -51,17 +60,14 @@ evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
 
 evaExpr = evaAssignment
 
-evaVariableStatement = do
-  _       <- evaKeywordLet <* spaces
-  varDecs <- sepBy1 varDeclaration (char ',' <* spaces)
-  _       <- char ';' <* spaces
-  return $ EvaLetDeclaration varDecs where
-    varDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
+evaLetStatement = evaLetBindings <* char ';' <* spaces
+evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> spaces *> (sepBy1 evaVarDeclaration (char ',' <* spaces)))
+evaVarDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
 
 evaVar = evaIdentifier <* spaces
 evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
-evaAssignment = evaBinary <|> evaSimpleAssignment where
-  evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
+evaAssignment = simpleAssignment <|> evaBinary where
+ simpleAssignment  = try $ EvaAssign <$> evaVar <*> evaVarInitializer
 
 evaIfStatement = do
   condition  <- evaKeywordIf *> spaces *> char '(' *> spaces *> evaExpr <* spaces <* char ')' <* spaces
@@ -69,10 +75,32 @@ evaIfStatement = do
   alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
   return $ EvaIfStatement condition consequent alternate
 
+evaWhileStatement = do
+  _         <- evaKeywordWhile <* spaces <* char '(' <* spaces
+  condition <- evaExpr <* spaces <* char ')' <* spaces
+  block     <- evaBlock <* spaces
+  return $ EvaWhileLoop condition block
+
+evaDoWhileStatement = do
+  _         <- evaKeywordDo <* spaces
+  block     <- evaBlock <* spaces
+  _         <- evaKeywordWhile <* spaces <* char '(' <* spaces
+  condition <- evaExpr <* spaces <* char ')' <* spaces <* char ';' <* spaces
+  return $ EvaDoWhileLoop condition block
+
+evaForStatement = do
+  _                <- evaKeywordFor <* spaces <* char '(' <* spaces
+  maybeAssignments <- (optionMaybe (evaLetBindings <|> sequenceExpr)) <* char ';' <* spaces
+  maybeCondition   <- (optionMaybe evaExpr) <* spaces <* char ';' <* spaces
+  maybeIncrementer <- (optionMaybe evaExpr) <* spaces <* char ')' <* spaces
+  block            <- evaBlock <* spaces
+  return $ EvaForLoop maybeAssignments maybeCondition maybeIncrementer block where
+    sequenceExpr = EvaSequenceExpr <$> (sepBy1 evaExpr (spaces *> char ',' <* spaces))
+
 evaBinary = boolOr where
   binary ops subexpr = do
     leftExpr  <- subexpr <* spaces
-    restExprs <- many $ leftAssociative <$> ((try ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
+    restExprs <- many $ leftAssociative <$> ((ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
     return $ foldl (&) leftExpr restExprs
 
   leftAssociative = EvaBinaryExpr >>> flip
@@ -84,7 +112,7 @@ evaBinary = boolOr where
   factor   = binary (opers ["*", "/"]) evaUnary
 
 evaUnary = unary <|> evaPrimary where
-  unary = EvaUnaryExpr <$> (try (operators <* spaces) >>= toUnaryOp) <*> evaUnary
+  unary = EvaUnaryExpr <$> ((operators <* spaces) >>= toUnaryOp) <*> evaUnary
   operators = opers ["-", "+", "!"]
 
 evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
@@ -105,17 +133,17 @@ evaBool    = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
 evaNull    = const EvaNull <$> evaKeywordNull
 
 -- helper functions
-opers ops = choice $ string <$> ops
+opers ops = choice $ try . string <$> ops
 
 toBinaryOp :: String -> Parser BinaryOp
 toBinaryOp "+"  = return Plus
 toBinaryOp "-"  = return Minus
 toBinaryOp "*"  = return Multiply
 toBinaryOp "/"  = return Divide
-toBinaryOp "<"  = return Less
-toBinaryOp ">"  = return Greater
 toBinaryOp "<=" = return LessEq
 toBinaryOp ">=" = return GreaterEq
+toBinaryOp "<"  = return Less
+toBinaryOp ">"  = return Greater
 toBinaryOp "==" = return Equality
 toBinaryOp "&&" = return And
 toBinaryOp "||" = return Or
