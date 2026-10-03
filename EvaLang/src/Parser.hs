@@ -26,7 +26,7 @@ parseEva = parse evaProgram ""
 evaProgram :: Parser EvaAst
 evaProgram = EvaProgram <$> (spaces *> evaStatementList)
 
-keyword str = lexeme $ string str <* (notFollowedBy evaValidIdChars)
+keyword str = lexeme $ try (string str) <* (notFollowedBy evaValidIdChars)
 evaKeywordLet   = keyword "let"
 evaKeywordIf    = keyword "if"
 evaKeywordElse  = keyword "else"
@@ -53,34 +53,28 @@ evaStatement = choice
   ]
 
 evaExprStatement = evaExpr <* semicolon
-
 evaExpr = evaAssignment
 
 evaLetStatement = evaLetBindings <* semicolon
 evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> (sepBy1 evaVarDeclaration comma))
-evaVarDeclaration = (,) <$> evaIdentifier <*> (optionMaybe evaVarInitializer)
 
+evaVarDeclaration = (,) <$> evaIdentifier <*> (optionMaybe evaVarInitializer)
 evaVarInitializer = assign *> evaAssignment
+
 evaAssignment = simpleAssignment <|> evaBinary where
- simpleAssignment  = try $ EvaAssign <$> evaIdentifier <*> evaVarInitializer
+ simpleAssignment = try $ EvaAssign <$> evaIdentifier <*> evaVarInitializer
 
 evaIfStatement = do
-  condition  <- evaKeywordIf *> between openParen closeParen evaExpr
+  condition  <- evaKeywordIf *> evaParen
   consequent <- evaStatement
   alternate  <- optionMaybe $ evaKeywordElse *> evaStatement
   return $ EvaIfStatement condition consequent alternate
 
-evaWhileStatement = do
-  _         <- evaKeywordWhile <* openParen
-  condition <- evaExpr <* closeParen
-  block     <- evaBlock
-  return $ EvaWhileLoop condition block
+evaWhileStatement = EvaWhileLoop <$> (evaKeywordWhile *> evaParen) <*> evaBlock
 
 evaDoWhileStatement = do
-  _         <- evaKeywordDo
-  block     <- evaBlock
-  _         <- evaKeywordWhile <* openParen
-  condition <- evaExpr <* closeParen <* semicolon
+  block     <- evaKeywordDo *> evaBlock
+  condition <- evaKeywordWhile *> evaParen <* semicolon
   return $ EvaDoWhileLoop condition block
 
 evaForStatement = do
