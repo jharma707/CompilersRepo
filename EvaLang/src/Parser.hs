@@ -38,9 +38,7 @@ evaKeywordDo    = keyword "do"
 evaKeywordFor   = keyword "for"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
-
-evaBlock = EvaBlock <$> (between openBrace closeBrace (many evaStatement)) where
-
+evaBlock = EvaBlock <$> (between openBrace closeBrace (many evaStatement))
 evaEmptyStatement = const EvaEmptyStatement <$> semicolon
 
 evaStatement = choice
