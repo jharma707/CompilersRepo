@@ -59,29 +59,28 @@ evaExprStatement = evaExpr <* semicolon
 evaExpr = evaAssignment
 
 evaLetStatement = evaLetBindings <* semicolon
-evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> spaces *> (sepBy1 evaVarDeclaration comma))
-evaVarDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
+evaLetBindings = EvaLetDeclaration <$> (evaKeywordLet *> (sepBy1 evaVarDeclaration comma))
+evaVarDeclaration = (,) <$> evaIdentifier <*> (optionMaybe evaVarInitializer)
 
-evaVar = evaIdentifier <* spaces
-evaVarInitializer = assign *> evaAssignment <* spaces
+evaVarInitializer = assign *> evaAssignment
 evaAssignment = simpleAssignment <|> evaBinary where
- simpleAssignment  = try $ EvaAssign <$> evaVar <*> evaVarInitializer
+ simpleAssignment  = try $ EvaAssign <$> evaIdentifier <*> evaVarInitializer
 
 evaIfStatement = do
   condition  <- evaKeywordIf *> between openParen closeParen evaExpr
-  consequent <- evaStatement <* spaces
-  alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
+  consequent <- evaStatement
+  alternate  <- optionMaybe $ evaKeywordElse *> evaStatement
   return $ EvaIfStatement condition consequent alternate
 
 evaWhileStatement = do
   _         <- evaKeywordWhile <* openParen
   condition <- evaExpr <* closeParen
-  block     <- evaBlock <* spaces
+  block     <- evaBlock
   return $ EvaWhileLoop condition block
 
 evaDoWhileStatement = do
-  _         <- evaKeywordDo <* spaces
-  block     <- evaBlock <* spaces
+  _         <- evaKeywordDo
+  block     <- evaBlock
   _         <- evaKeywordWhile <* openParen
   condition <- evaExpr <* closeParen <* semicolon
   return $ EvaDoWhileLoop condition block
@@ -91,14 +90,14 @@ evaForStatement = do
   maybeAssignments <- (optionMaybe (evaLetBindings <|> sequenceExpr)) <* semicolon
   maybeCondition   <- (optionMaybe evaExpr) <* semicolon
   maybeIncrementer <- (optionMaybe evaExpr) <* closeParen
-  block            <- evaBlock <* spaces
+  block            <- evaBlock
   return $ EvaForLoop maybeAssignments maybeCondition maybeIncrementer block where
     sequenceExpr = EvaSequenceExpr <$> (sepBy1 evaExpr comma)
 
 evaBinary = boolOr where
   binary ops subexpr = do
-    leftExpr  <- subexpr <* spaces
-    restExprs <- many $ leftAssociative <$> ((ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
+    leftExpr  <- subexpr
+    restExprs <- many $ leftAssociative <$> (ops >>= toBinaryOp) <*> subexpr
     return $ foldl (&) leftExpr restExprs
 
   leftAssociative = EvaBinaryExpr >>> flip
@@ -110,7 +109,7 @@ evaBinary = boolOr where
   factor   = binary (opers ["*", "/"]) evaUnary
 
 evaUnary = unary <|> evaPrimary where
-  unary = EvaUnaryExpr <$> ((operators <* spaces) >>= toUnaryOp) <*> evaUnary
+  unary = EvaUnaryExpr <$> (operators >>= toUnaryOp) <*> evaUnary
   operators = opers ["-", "+", "!"]
 
 evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
