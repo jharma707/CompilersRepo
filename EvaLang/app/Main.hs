@@ -10,6 +10,6 @@ interpret source = do
   return $ interpretEvaAst ast
 
 main :: IO ()
-main = case parseEva "if ( 3 + 4 && 3 == false ) 3;" of
+main = case parseEva "!(x + 4) || -+!y * 2;" of
          (Left err) -> print err
          (Right res) -> print res

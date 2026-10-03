@@ -8,7 +8,14 @@ import Data.Function
 import Text.Parsec
 import Text.Parsec.Text (Parser)
 
-keywords = ["let", "if", "else", "true", "false"]
+keywords =
+  [ "let"
+  , "if"
+  , "else"
+  , "true"
+  , "false"
+  , "null"
+  ]
 
 parseEva :: T.Text -> Either ParseError EvaAst
 parseEva = parse evaProgram ""
@@ -22,6 +29,7 @@ evaKeywordIf    = keyword "if"
 evaKeywordElse  = keyword "else"
 evaKeywordTrue  = keyword "true"
 evaKeywordFalse = keyword "false"
+evaKeywordNull  = keyword "null"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 
@@ -40,6 +48,7 @@ evaStatement = choice
   ]
 
 evaExprStatement = evaExpr <* spaces <* char ';' <* spaces
+
 evaExpr = evaAssignment
 
 evaVariableStatement = do
@@ -49,9 +58,9 @@ evaVariableStatement = do
   return $ EvaLetDeclaration varDecs where
     varDeclaration = (,) <$> evaVar <*> (optionMaybe evaVarInitializer)
 
-evaVar = T.pack <$> evaIdentifier <* spaces
+evaVar = evaIdentifier <* spaces
 evaVarInitializer = char '=' *> spaces *> evaAssignment <* spaces
-evaAssignment = evaRelational <|> evaSimpleAssignment where
+evaAssignment = evaBinary <|> evaSimpleAssignment where
   evaSimpleAssignment = EvaAssign <$> evaVar <*> evaVarInitializer
 
 evaIfStatement = do
@@ -60,7 +69,7 @@ evaIfStatement = do
   alternate  <- optionMaybe $ evaKeywordElse *> spaces *> evaStatement <* spaces
   return $ EvaIfStatement condition consequent alternate
 
-evaRelational = boolOr where
+evaBinary = boolOr where
   binary ops subexpr = do
     leftExpr  <- subexpr <* spaces
     restExprs <- many $ leftAssociative <$> ((try ops <* spaces) >>= toBinaryOp) <*> (subexpr <* spaces)
@@ -74,23 +83,26 @@ evaRelational = boolOr where
   term     = binary (opers ["+", "-"]) factor
   factor   = binary (opers ["*", "/"]) evaUnary
 
-evaUnary = unaryOp <|> evaPrimary where
-  unaryOp = EvaUnaryExpr <$> (try ((opers ["-"]) <* spaces) >>= toUnaryOp) <*> evaUnary
+evaUnary = unary <|> evaPrimary where
+  unary = EvaUnaryExpr <$> (try (operators <* spaces) >>= toUnaryOp) <*> evaUnary
+  operators = opers ["-", "+", "!"]
 
-evaPrimary = choice [evaLiteral, evaParen]
+evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
 evaParen = char '(' *> spaces *> evaExpr <* spaces <* char ')'
 
 evaIdentifier = do
   identifier <- (:) <$> letter <*> many evaValidIdChars
   if identifier `elem` keywords
   then parserFail $ show identifier <> " is a reserved keyword and can't be used as an identifier."
-  else return identifier
+  else return $ EvaIdentifier $ T.pack identifier
 
-evaLiteral = choice [evaNumber, evaString, evaBool]
 evaValidIdChars = choice [char '_', letter, digit]
-evaNumber = (read >>> EvaNumber) <$> many1 digit
-evaString = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
-evaBool   = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
+
+evaLiteral = choice [evaNumber, evaString, evaBool, evaNull]
+evaNumber  = (read >>> EvaNumber) <$> many1 digit
+evaString  = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
+evaBool    = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
+evaNull    = const EvaNull <$> evaKeywordNull
 
 -- helper functions
 opers ops = choice $ string <$> ops
@@ -116,4 +128,6 @@ toBool literal = parserFail $ "unexpected boolean expression: " <> literal
 
 toUnaryOp :: String -> Parser UnaryOp
 toUnaryOp "-"  = return Negative
+toUnaryOp "+"  = return Positive
+toUnaryOp "!"  = return Negation
 toUnaryOp oper = parserFail $ "unexpected unary expression: " <> oper
