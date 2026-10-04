@@ -10,6 +10,6 @@ interpret source = do
   return $ interpretEvaAst ast
 
 main :: IO ()
-main = case parseEva "while (1 > 0) { w = 3; }" of
+main = case parseEva "a.b.c[1 + 2];" of
          (Left err) -> print err
          (Right res) -> print res

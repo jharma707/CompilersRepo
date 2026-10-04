@@ -3,24 +3,27 @@ module Ast where
 import Data.Text
 
 data EvaAst
-  = EvaProgram        EvaAst
-  | EvaNumber         Integer
-  | EvaString         Text
-  | EvaBool           Bool
+  = EvaProgram             EvaAst
+  | EvaNumber              Integer
+  | EvaString              Text
+  | EvaBool                Bool
   | EvaNull
-  | EvaStatements     [EvaAst]
-  | EvaBlock          [EvaAst]
+  | EvaStatements          [EvaAst]
+  | EvaBlock               [EvaAst]
   | EvaEmptyStatement
-  | EvaBinaryExpr     BinaryOp EvaAst EvaAst
-  | EvaUnaryExpr      UnaryOp EvaAst
-  | EvaAssign         EvaAst EvaAst
-  | EvaIdentifier     Text
-  | EvaLetDeclaration [(EvaAst, Maybe EvaAst)]
-  | EvaIfStatement    EvaAst EvaAst (Maybe EvaAst)
-  | EvaWhileLoop      EvaAst EvaAst
-  | EvaDoWhileLoop    EvaAst EvaAst
-  | EvaForLoop        (Maybe EvaAst) (Maybe EvaAst) (Maybe EvaAst) EvaAst
-  | EvaSequenceExpr   [EvaAst]
+  | EvaReturnStatement     (Maybe EvaAst)
+  | EvaBinaryExpr          BinaryOp EvaAst EvaAst
+  | EvaUnaryExpr           UnaryOp EvaAst
+  | EvaMemberExpr          Bool EvaAst EvaAst
+  | EvaAssign              EvaAst EvaAst
+  | EvaIdentifier          Text
+  | EvaLetDeclaration      [(EvaAst, Maybe EvaAst)]
+  | EvaIfStatement         EvaAst EvaAst (Maybe EvaAst)
+  | EvaWhileLoop           EvaAst EvaAst
+  | EvaDoWhileLoop         EvaAst EvaAst
+  | EvaForLoop             (Maybe EvaAst) (Maybe EvaAst) (Maybe EvaAst) EvaAst
+  | EvaSequenceExpr        [EvaAst]
+  | EvaFunctionDeclaration EvaAst [EvaAst] EvaAst
   deriving (Show, Eq)
 
 data BinaryOp

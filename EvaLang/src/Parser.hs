@@ -18,6 +18,8 @@ keywords =
   , "while"
   , "do"
   , "for"
+  , "def"
+  , "return"
   ]
 
 parseEva :: T.Text -> Either ParseError EvaAst
@@ -26,16 +28,18 @@ parseEva = parse evaProgram ""
 evaProgram :: Parser EvaAst
 evaProgram = EvaProgram <$> (spaces *> evaStatementList)
 
-keyword str = lexeme $ try (string str) <* (notFollowedBy evaValidIdChars)
-evaKeywordLet   = keyword "let"
-evaKeywordIf    = keyword "if"
-evaKeywordElse  = keyword "else"
-evaKeywordTrue  = keyword "true"
-evaKeywordFalse = keyword "false"
-evaKeywordNull  = keyword "null"
-evaKeywordWhile = keyword "while"
-evaKeywordDo    = keyword "do"
-evaKeywordFor   = keyword "for"
+keyword str = lexeme $ string' str <* (notFollowedBy evaValidIdChars)
+evaKeywordLet    = keyword "let"
+evaKeywordIf     = keyword "if"
+evaKeywordElse   = keyword "else"
+evaKeywordTrue   = keyword "true"
+evaKeywordFalse  = keyword "false"
+evaKeywordNull   = keyword "null"
+evaKeywordWhile  = keyword "while"
+evaKeywordDo     = keyword "do"
+evaKeywordFor    = keyword "for"
+evaKeywordDef    = keyword "def"
+evaKeywordReturn = keyword "return"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 evaBlock = EvaBlock <$> (between openBrace closeBrace (many evaStatement))
@@ -47,6 +51,8 @@ evaStatement = choice
   , evaWhileStatement
   , evaForStatement
   , evaDoWhileStatement
+  , evaFunctionDeclaration
+  , evaReturnStatement
   , evaExprStatement
   , evaBlock
   , evaEmptyStatement
@@ -86,6 +92,14 @@ evaForStatement = do
   return $ EvaForLoop maybeAssignments maybeCondition maybeIncrementer block where
     sequenceExpr = EvaSequenceExpr <$> (sepBy1 evaExpr comma)
 
+evaReturnStatement = EvaReturnStatement <$> (evaKeywordReturn *> (optionMaybe evaExpr) <* semicolon)
+
+evaFunctionDeclaration = do
+  name   <- evaKeywordDef *> evaIdentifier
+  params <- between openParen closeParen $ sepBy evaIdentifier comma
+  body   <- evaBlock
+  return $ EvaFunctionDeclaration name params body
+
 evaBinary = boolOr where
   binary ops subexpr = do
     leftExpr  <- subexpr
@@ -100,9 +114,18 @@ evaBinary = boolOr where
   term     = binary (opers ["+", "-"]) factor
   factor   = binary (opers ["*", "/"]) evaUnary
 
-evaUnary = unary <|> evaPrimary where
+evaUnary = unary <|> evaLeftExpr where
   unary = EvaUnaryExpr <$> (operators >>= toUnaryOp) <*> evaUnary
   operators = opers ["-", "+", "!"]
+
+evaLeftExpr = evaMemberExpr
+
+evaMemberExpr = do
+  object     <- evaPrimary
+  properties <- many $ memberProperty <|> computedProperty
+  return $ foldl (&) object properties where
+    memberProperty   = flip (EvaMemberExpr False) <$> (property *> evaIdentifier)
+    computedProperty = flip (EvaMemberExpr True)  <$> (between memberOpen memberClose evaExpr)
 
 evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
 evaParen = between openParen closeParen evaExpr
@@ -132,6 +155,9 @@ semicolon = lexeme $ char ';'
 assign = lexeme $ char '='
 openBrace = lexeme $ char '{'
 closeBrace = lexeme $ char '}'
+property = lexeme $ char '.'
+memberOpen = lexeme $ char '['
+memberClose = lexeme $ char ']'
 
 toBinaryOp :: String -> Parser BinaryOp
 toBinaryOp "+"  = return Plus
