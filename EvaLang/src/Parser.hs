@@ -3,6 +3,7 @@ module Parser (parseEva) where
 import Ast
 
 import Control.Arrow
+import Control.Monad (void)
 import qualified Data.Text as T
 import Data.Function
 import Text.Parsec
@@ -26,7 +27,7 @@ parseEva :: T.Text -> Either ParseError EvaAst
 parseEva = parse evaProgram ""
 
 evaProgram :: Parser EvaAst
-evaProgram = EvaProgram <$> (spaces *> evaStatementList)
+evaProgram = EvaProgram <$> (whitespace *> evaStatementList)
 
 keyword str = lexeme $ string' str <* (notFollowedBy evaValidIdChars)
 evaKeywordLet    = keyword "let"
@@ -68,7 +69,16 @@ evaVarDeclaration = (,) <$> evaIdentifier <*> (optionMaybe evaVarInitializer)
 evaVarInitializer = assign *> evaAssignment
 
 evaAssignment = simpleAssignment <|> evaBinary where
- simpleAssignment = try $ EvaAssign <$> evaIdentifier <*> evaVarInitializer
+ simpleAssignment = do
+   results <- try $ do
+     leftExpr <- evaLeftExpr
+     initExpr <- evaVarInitializer
+     return (leftExpr, initExpr)
+
+   case fst results of
+     (EvaIdentifier _)     -> return $ (uncurry EvaAssign) results
+     (EvaMemberExpr _ _ _) -> return $ (uncurry EvaAssign) results
+     _                     -> parserFail "Invalid left-hand side in assignment expression."
 
 evaIfStatement = do
   condition  <- evaKeywordIf *> evaParen
@@ -122,10 +132,11 @@ evaLeftExpr = evaMemberExpr
 
 evaMemberExpr = do
   object     <- evaPrimary
-  properties <- many $ memberProperty <|> computedProperty
+  properties <- many $ choice [memberProperty, computedProperty, callExpr]
   return $ foldl (&) object properties where
     memberProperty   = flip (EvaMemberExpr False) <$> (property *> evaIdentifier)
     computedProperty = flip (EvaMemberExpr True)  <$> (between memberOpen memberClose evaExpr)
+    callExpr         = flip EvaCallExpr <$> (between openParen closeParen (sepBy evaExpr comma))
 
 evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
 evaParen = between openParen closeParen evaExpr
@@ -136,7 +147,7 @@ evaIdentifier = do
   then parserFail $ show identifier <> " is a reserved keyword and can't be used as an identifier."
   else return $ EvaIdentifier $ T.pack identifier
 
-evaValidIdChars = choice [char '_', letter, digit]
+evaValidIdChars = char '_' <|> alphaNum
 
 evaLiteral = lexeme $ choice [evaNumber, evaString, evaBool, evaNull]
 evaNumber  = (read >>> EvaNumber) <$> many1 digit
@@ -144,10 +155,13 @@ evaString  = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ no
 evaBool    = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
 evaNull    = const EvaNull <$> evaKeywordNull
 
--- helper functions
-opers ops = lexeme $ choice $ try . string <$> ops
+evaLineComment = string' "//" *> (skipMany (noneOf "\r\n")) *> (choice [eof, void endOfLine])
 
-lexeme p = p <* spaces
+whitespace = skipMany $ choice [skipMany1 space, evaLineComment]
+
+-- helper functions
+lexeme p = p <* whitespace
+opers ops = lexeme $ choice $ try . string <$> ops
 comma = lexeme $ char ','
 openParen = lexeme $ char '('
 closeParen = lexeme $ char ')'

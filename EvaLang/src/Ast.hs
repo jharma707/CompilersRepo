@@ -15,6 +15,7 @@ data EvaAst
   | EvaBinaryExpr          BinaryOp EvaAst EvaAst
   | EvaUnaryExpr           UnaryOp EvaAst
   | EvaMemberExpr          Bool EvaAst EvaAst
+  | EvaCallExpr            EvaAst [EvaAst]
   | EvaAssign              EvaAst EvaAst
   | EvaIdentifier          Text
   | EvaLetDeclaration      [(EvaAst, Maybe EvaAst)]
@@ -31,5 +32,7 @@ data BinaryOp
   | Greater | GreaterEq | Less | LessEq
   | Equality | And | Or
   deriving (Show, Eq)
-data UnaryOp = Positive | Negative | Negation
+
+data UnaryOp
+  = Positive | Negative | Negation
   deriving (Show, Eq)
