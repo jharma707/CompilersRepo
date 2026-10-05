@@ -16,6 +16,9 @@ data EvaAst
   | EvaUnaryExpr           UnaryOp EvaAst
   | EvaMemberExpr          Bool EvaAst EvaAst
   | EvaCallExpr            EvaAst [EvaAst]
+  | EvaThisExpr
+  | EvaSuper
+  | EvaNew                 EvaAst [EvaAst]
   | EvaAssign              EvaAst EvaAst
   | EvaIdentifier          Text
   | EvaLetDeclaration      [(EvaAst, Maybe EvaAst)]
@@ -25,6 +28,7 @@ data EvaAst
   | EvaForLoop             (Maybe EvaAst) (Maybe EvaAst) (Maybe EvaAst) EvaAst
   | EvaSequenceExpr        [EvaAst]
   | EvaFunctionDeclaration EvaAst [EvaAst] EvaAst
+  | EvaClassDeclaration    EvaAst (Maybe EvaAst) EvaAst
   deriving (Show, Eq)
 
 data BinaryOp

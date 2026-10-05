@@ -3,6 +3,7 @@ module Parser (parseEva) where
 import Ast
 
 import Control.Arrow
+import Control.Applicative ((<**>))
 import Control.Monad (void)
 import qualified Data.Text as T
 import Data.Function
@@ -21,6 +22,11 @@ keywords =
   , "for"
   , "def"
   , "return"
+  , "class"
+  , "extends"
+  , "this"
+  , "super"
+  , "new"
   ]
 
 parseEva :: T.Text -> Either ParseError EvaAst
@@ -30,21 +36,26 @@ evaProgram :: Parser EvaAst
 evaProgram = EvaProgram <$> (whitespace *> evaStatementList)
 
 keyword str = lexeme $ string' str <* (notFollowedBy evaValidIdChars)
-evaKeywordLet    = keyword "let"
-evaKeywordIf     = keyword "if"
-evaKeywordElse   = keyword "else"
-evaKeywordTrue   = keyword "true"
-evaKeywordFalse  = keyword "false"
-evaKeywordNull   = keyword "null"
-evaKeywordWhile  = keyword "while"
-evaKeywordDo     = keyword "do"
-evaKeywordFor    = keyword "for"
-evaKeywordDef    = keyword "def"
-evaKeywordReturn = keyword "return"
+evaKeywordLet     = keyword "let"
+evaKeywordIf      = keyword "if"
+evaKeywordElse    = keyword "else"
+evaKeywordTrue    = keyword "true"
+evaKeywordFalse   = keyword "false"
+evaKeywordNull    = keyword "null"
+evaKeywordWhile   = keyword "while"
+evaKeywordDo      = keyword "do"
+evaKeywordFor     = keyword "for"
+evaKeywordDef     = keyword "def"
+evaKeywordReturn  = keyword "return"
+evaKeywordClass   = keyword "class"
+evaKeywordExtends = keyword "extends"
+evaKeywordThis    = keyword "this"
+evaKeywordSuper   = keyword "super"
+evaKeywordNew     = keyword "new"
 
 evaStatementList = EvaStatements <$> many1 evaStatement
 evaBlock = EvaBlock <$> (between openBrace closeBrace (many evaStatement))
-evaEmptyStatement = const EvaEmptyStatement <$> semicolon
+evaEmptyStatement = EvaEmptyStatement <$ semicolon
 
 evaStatement = choice
   [ evaLetStatement
@@ -52,8 +63,9 @@ evaStatement = choice
   , evaWhileStatement
   , evaForStatement
   , evaDoWhileStatement
-  , evaFunctionDeclaration
   , evaReturnStatement
+  , evaFunctionDeclaration
+  , evaClassDeclaration
   , evaExprStatement
   , evaBlock
   , evaEmptyStatement
@@ -70,11 +82,7 @@ evaVarInitializer = assign *> evaAssignment
 
 evaAssignment = simpleAssignment <|> evaBinary where
  simpleAssignment = do
-   results <- try $ do
-     leftExpr <- evaLeftExpr
-     initExpr <- evaVarInitializer
-     return (leftExpr, initExpr)
-
+   results <- try $ (,) <$> evaLeftExpr <*> evaVarInitializer
    case fst results of
      (EvaIdentifier _)     -> return $ (uncurry EvaAssign) results
      (EvaMemberExpr _ _ _) -> return $ (uncurry EvaAssign) results
@@ -110,6 +118,12 @@ evaFunctionDeclaration = do
   body   <- evaBlock
   return $ EvaFunctionDeclaration name params body
 
+evaClassDeclaration
+  =   EvaClassDeclaration
+  <$> (evaKeywordClass *> evaIdentifier)
+  <*> (optionMaybe (evaKeywordExtends *> evaIdentifier))
+  <*> evaBlock
+
 evaBinary = boolOr where
   binary ops subexpr = do
     leftExpr  <- subexpr
@@ -128,17 +142,26 @@ evaUnary = unary <|> evaLeftExpr where
   unary = EvaUnaryExpr <$> (operators >>= toUnaryOp) <*> evaUnary
   operators = opers ["-", "+", "!"]
 
-evaLeftExpr = evaMemberExpr
+evaLeftExpr = evaSuper <|> (evaCallMemberExpr evaPrimary)
 
-evaMemberExpr = do
-  object     <- evaPrimary
-  properties <- many $ choice [memberProperty, computedProperty, callExpr]
-  return $ foldl (&) object properties where
-    memberProperty   = flip (EvaMemberExpr False) <$> (property *> evaIdentifier)
-    computedProperty = flip (EvaMemberExpr True)  <$> (between memberOpen memberClose evaExpr)
-    callExpr         = flip EvaCallExpr <$> (between openParen closeParen (sepBy evaExpr comma))
+evaMemberProperty   = flip (EvaMemberExpr False) <$> (property *> evaIdentifier)
+evaComputedProperty = flip (EvaMemberExpr True)  <$> (between memberOpen memberClose evaExpr)
 
-evaPrimary = choice [evaLiteral, evaIdentifier, evaParen]
+evaArguments = between openParen closeParen (sepBy evaExpr comma)
+evaCallExpr = flip EvaCallExpr <$> evaArguments
+
+evaCallMemberExpr = evaChainHelper [evaMemberProperty, evaComputedProperty, evaCallExpr]
+evaMemberExpr     = evaChainHelper [evaMemberProperty, evaComputedProperty]
+
+evaSuper = evaCallMemberExpr $ (EvaSuper <$ evaKeywordSuper) <**> evaCallExpr
+evaNew = EvaNew <$> (evaKeywordNew *> (evaMemberExpr evaPrimary)) <*> evaArguments
+
+evaChainHelper choices objectP = do
+  object     <- objectP
+  properties <- many $ choice choices
+  return $ foldl (&) object properties
+
+evaPrimary = choice [evaThis, evaNew, evaLiteral, evaIdentifier, evaParen]
 evaParen = between openParen closeParen evaExpr
 
 evaIdentifier = do
@@ -147,13 +170,15 @@ evaIdentifier = do
   then parserFail $ show identifier <> " is a reserved keyword and can't be used as an identifier."
   else return $ EvaIdentifier $ T.pack identifier
 
+evaThis = EvaThisExpr <$ evaKeywordThis
+
 evaValidIdChars = char '_' <|> alphaNum
 
 evaLiteral = lexeme $ choice [evaNumber, evaString, evaBool, evaNull]
 evaNumber  = (read >>> EvaNumber) <$> many1 digit
 evaString  = (T.pack >>> EvaString) <$> between (char '"') (char '"') (many $ noneOf "\"")
 evaBool    = EvaBool <$> (choice [evaKeywordTrue, evaKeywordFalse] >>= toBool)
-evaNull    = const EvaNull <$> evaKeywordNull
+evaNull    = EvaNull <$ evaKeywordNull
 
 evaLineComment = string' "//" *> (skipMany (noneOf "\r\n")) *> (choice [eof, void endOfLine])
 
