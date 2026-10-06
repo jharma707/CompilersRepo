@@ -6,10 +6,10 @@ import Parser
 import Backend.TreeWalkInterpreter
 
 interpret source = do
-  ast <- parseEva source
-  return $ interpretEvaAst ast
+  ast <- parseLetter source
+  return $ interpretLetterAst ast
 
 main :: IO ()
-main = case parseEva "new A(8); super(3, 4).b[3];" of
+main = case parseLetter "new A(8).x; super(3, 4).b[3];" of
          (Left err) -> print err
          (Right res) -> print res

@@ -1,7 +1,7 @@
 cabal-version:      3.0
 
 -- The name of the package.
-name:               EvaLang
+name:               LetterLang
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -59,7 +59,7 @@ library
 
     default-language: GHC2024
 
-executable EvaLang
+executable LetterLang
     -- Import common warning flags.
     import:           warnings
 
@@ -76,7 +76,7 @@ executable EvaLang
     build-depends:    base   ^>= 4.20.2.0
                     , text   ^>= 2.1.4
                     , parsec ^>= 3.1.18.0
-                    , EvaLang
+                    , LetterLang
 
     -- Directories containing source files.
     hs-source-dirs:   app
