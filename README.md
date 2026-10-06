@@ -2,6 +2,9 @@
 
 This is a repository containing all my practice projects related to compilers. 
 
+Inspired by Dmitry Soshnikov's teaching languages presented within his courses as well
+as various textbooks. 
+
 ### EvaLang
 An S-Expression based language implemented in Racket. 
 * Done: Interpreter
