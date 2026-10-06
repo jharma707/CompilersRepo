@@ -1,0 +1,14 @@
+def test1() {
+  let i = 3 + 3 - 2;
+  return i;
+}
+
+def test2() {
+  let je = 0 * 3 + 1;
+  return je + 11;
+}
+
+def test3(i, j) {
+  3 - 1 / 8 * 2 + i;
+  i = j + 1;
+}

@@ -53,9 +53,29 @@ library
                     , Backend.TreeWalkInterpreter
                     , Printers.SExpr
 
-    build-depends:    base   ^>= 4.20.2.0
-                    , parsec ^>= 3.1.18.0
-                    , text   ^>= 2.1.4
+    build-depends:    base   >= 4.20.2.0
+                    , parsec >= 3.1.18.0
+                    , text   >= 2.1.4
+
+    default-language: GHC2024
+
+test-suite LetterLangTests
+    -- Specify the test framework type
+    type:             exitcode-stdio-1.0
+
+    -- The entry point file for your tests
+    main-is:          Parser/SpecRunner.hs
+
+    -- The directory where your test files live
+    hs-source-dirs:   test
+
+    -- Dependencies: include your local library, tasty, and tasty-hunit
+    build-depends:
+        base,
+        LetterLang,
+        parsec >= 3.1.18.0,
+        text >= 2.1.4,
+        hspec >= 2.11.17
 
     default-language: GHC2024
 
@@ -73,10 +93,11 @@ executable LetterLang
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base   ^>= 4.20.2.0
-                    , text   ^>= 2.1.4
-                    , parsec ^>= 3.1.18.0
-                    , LetterLang
+    build-depends:
+        base >= 4.20.2.0,
+        text >= 2.1.4,
+        parsec >= 3.1.18.0,
+        LetterLang
 
     -- Directories containing source files.
     hs-source-dirs:   app
