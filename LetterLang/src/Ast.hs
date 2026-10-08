@@ -2,6 +2,7 @@ module Ast where
 
 import Data.Text
 
+
 data LetterAst
   = LetterProgram             LetterAst
   | LetterNumber              Integer
@@ -28,7 +29,8 @@ data LetterAst
   | LetterForLoop             (Maybe LetterAst) (Maybe LetterAst) (Maybe LetterAst) LetterAst
   | LetterSequenceExpr        [LetterAst]
   | LetterFunctionDeclaration LetterAst [LetterAst] LetterAst
-  | LetterClassDeclaration    LetterAst (Maybe LetterAst) LetterAst
+  | LetterConstructor         [LetterAst] LetterAst
+  | LetterClassDeclaration    LetterAst [LetterAst] (Maybe LetterAst) LetterAst
   deriving (Show, Eq)
 
 data BinaryOp

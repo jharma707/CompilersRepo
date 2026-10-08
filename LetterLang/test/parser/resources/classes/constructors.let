@@ -1,0 +1,18 @@
+class Pair1 {
+  let first, second;
+
+  constructor(first, second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  def sum() {
+    return first + second;
+  }
+}
+
+class Pair2(first, second) {
+  def sum() {
+    return first + second;
+  }
+}

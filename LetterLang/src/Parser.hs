@@ -4,9 +4,10 @@ import Ast
 
 import Control.Arrow
 import Control.Applicative ((<**>))
-import Control.Monad (void)
+import Control.Monad (void, join)
 import qualified Data.Text as T
 import Data.Function
+import Data.Maybe
 import Text.Parsec
 import Text.Parsec.Text (Parser)
 
@@ -27,6 +28,7 @@ keywords =
   , "this"
   , "super"
   , "new"
+  , "constructor"
   ]
 
 parseLetter :: T.Text -> Either ParseError LetterAst
@@ -36,22 +38,23 @@ letterProgram :: Parser LetterAst
 letterProgram = LetterProgram <$> (whitespace *> letterStatementList)
 
 keyword str = lexeme $ string' str <* (notFollowedBy letterValidIdChars)
-letterKeywordLet     = keyword "let"
-letterKeywordIf      = keyword "if"
-letterKeywordElse    = keyword "else"
-letterKeywordTrue    = keyword "true"
-letterKeywordFalse   = keyword "false"
-letterKeywordNull    = keyword "null"
-letterKeywordWhile   = keyword "while"
-letterKeywordDo      = keyword "do"
-letterKeywordFor     = keyword "for"
-letterKeywordDef     = keyword "def"
-letterKeywordReturn  = keyword "return"
-letterKeywordClass   = keyword "class"
-letterKeywordExtends = keyword "extends"
-letterKeywordThis    = keyword "this"
-letterKeywordSuper   = keyword "super"
-letterKeywordNew     = keyword "new"
+letterKeywordLet         = keyword "let"
+letterKeywordIf          = keyword "if"
+letterKeywordElse        = keyword "else"
+letterKeywordTrue        = keyword "true"
+letterKeywordFalse       = keyword "false"
+letterKeywordNull        = keyword "null"
+letterKeywordWhile       = keyword "while"
+letterKeywordDo          = keyword "do"
+letterKeywordFor         = keyword "for"
+letterKeywordDef         = keyword "def"
+letterKeywordReturn      = keyword "return"
+letterKeywordClass       = keyword "class"
+letterKeywordExtends     = keyword "extends"
+letterKeywordThis        = keyword "this"
+letterKeywordSuper       = keyword "super"
+letterKeywordNew         = keyword "new"
+letterKeywordConstructor = keyword "constructor"
 
 letterStatementList = LetterStatements <$> many1 letterStatement
 letterBlock = LetterBlock <$> (between openBrace closeBrace (many letterStatement))
@@ -112,17 +115,31 @@ letterForStatement = do
 
 letterReturnStatement = LetterReturnStatement <$> (letterKeywordReturn *> (optionMaybe letterExpr) <* semicolon)
 
-letterFunctionDeclaration = do
-  name   <- letterKeywordDef *> letterIdentifier
-  params <- between openParen closeParen $ sepBy letterIdentifier comma
-  body   <- letterBlock
-  return $ LetterFunctionDeclaration name params body
+letterFunctionParameters = between openParen closeParen $ sepBy letterIdentifier comma
+
+letterFunctionDeclaration
+  =   LetterFunctionDeclaration
+  <$> (letterKeywordDef *> letterIdentifier)
+  <*> letterFunctionParameters
+  <*> letterBlock
+
+letterClassBlock = LetterBlock <$> (between openBrace closeBrace (many letterClassStatement))
+
+letterClassStatement = choice
+  [ letterFunctionDeclaration
+  , letterLetStatement
+  , letterConstructorDeclaration
+  ]
 
 letterClassDeclaration
   =   LetterClassDeclaration
   <$> (letterKeywordClass *> letterIdentifier)
+  <*> ((maybeToList >>> join) <$> (optionMaybe letterFunctionParameters))
   <*> (optionMaybe (letterKeywordExtends *> letterIdentifier))
-  <*> letterBlock
+  <*> letterClassBlock
+
+letterConstructorDeclaration
+  = LetterConstructor <$> (letterKeywordConstructor *> letterFunctionParameters) <*> letterBlock
 
 letterBinary = boolOr where
   binary ops subexpr = do
@@ -144,7 +161,7 @@ letterUnary = unary <|> letterLeftExpr where
 
 letterLeftExpr = letterSuper <|> (letterCallMemberExpr letterPrimary)
 
-letterMemberProperty   = flip (LetterMemberExpr False) <$> (property *> letterIdentifier)
+letterMemberProperty   = flip (LetterMemberExpr False) <$> (dot *> letterIdentifier)
 letterComputedProperty = flip (LetterMemberExpr True)  <$> (between memberOpen memberClose letterExpr)
 
 letterArguments = between openParen closeParen (sepBy letterExpr comma)
@@ -156,10 +173,7 @@ letterMemberExpr     = letterChainHelper [letterMemberProperty, letterComputedPr
 letterSuper = letterCallMemberExpr $ (LetterSuper <$ letterKeywordSuper) <**> letterCallExpr
 letterNew = LetterNew <$> (letterKeywordNew *> (letterMemberExpr letterPrimary)) <*> letterArguments
 
-letterChainHelper choices objectP = do
-  object     <- objectP
-  properties <- many $ choice choices
-  return $ foldl (&) object properties
+letterChainHelper choices objectP = foldl (&) <$> objectP <*> (many $ choice choices)
 
 letterPrimary = choice [letterThis, letterNew, letterLiteral, letterIdentifier, letterParen]
 letterParen = between openParen closeParen letterExpr
@@ -194,7 +208,7 @@ semicolon = lexeme $ char ';'
 assign = lexeme $ char '='
 openBrace = lexeme $ char '{'
 closeBrace = lexeme $ char '}'
-property = lexeme $ char '.'
+dot = lexeme $ char '.'
 memberOpen = lexeme $ char '['
 memberClose = lexeme $ char ']'
 
