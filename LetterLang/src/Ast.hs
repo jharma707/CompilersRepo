@@ -2,7 +2,6 @@ module Ast where
 
 import Data.Text
 
-
 data LetterAst
   = LetterProgram             LetterAst
   | LetterNumber              Integer
@@ -38,8 +37,26 @@ data BinaryOp
   = Plus | Minus | Multiply | Divide
   | Greater | GreaterEq | Less | LessEq
   | Equality | And | Or
-  deriving (Show, Eq)
+  deriving (Eq)
 
 data UnaryOp
   = Positive | Negative | Negation
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show BinaryOp where
+  show Plus = "+"
+  show Minus = "-"
+  show Multiply = "*"
+  show Divide = "/"
+  show Greater = ">"
+  show GreaterEq = ">="
+  show Less = "<"
+  show LessEq = "<="
+  show Equality = "=="
+  show And = "&&"
+  show Or = "||"
+
+instance Show UnaryOp where
+  show Positive = "+"
+  show Negative = "-"
+  show Negation = "!"

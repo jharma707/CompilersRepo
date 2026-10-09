@@ -4,6 +4,7 @@ module Main (main) where
 
 import Parser
 import Backend.TreeWalkInterpreter
+import Printers.SExpr
 
 interpret source = do
   ast <- parseLetter source
@@ -12,4 +13,4 @@ interpret source = do
 main :: IO ()
 main = case parseLetter "new A(8).x; super(3, 4).b[3];" of
          (Left err) -> print err
-         (Right res) -> print res
+         (Right res) -> print $ SExprPrinter res
