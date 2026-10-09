@@ -21,6 +21,7 @@ keywords =
   , "while"
   , "do"
   , "for"
+  , "fn"
   , "def"
   , "return"
   , "class"
@@ -52,6 +53,7 @@ letterKeywordReturn      = keyword "return"
 letterKeywordClass       = keyword "class"
 letterKeywordExtends     = keyword "extends"
 letterKeywordThis        = keyword "this"
+letterKeywordFn          = keyword "fn"
 letterKeywordSuper       = keyword "super"
 letterKeywordNew         = keyword "new"
 letterKeywordConstructor = keyword "constructor"
@@ -115,7 +117,7 @@ letterForStatement = do
 
 letterReturnStatement = LetterReturnStatement <$> (letterKeywordReturn *> (optionMaybe letterExpr) <* semicolon)
 
-letterFunctionParameters = between openParen closeParen $ sepBy letterIdentifier comma
+letterFunctionParameters = betweenParens $ sepBy letterIdentifier comma
 
 letterFunctionDeclaration
   =   LetterFunctionDeclaration
@@ -164,7 +166,7 @@ letterLeftExpr = letterSuper <|> (letterCallMemberExpr letterPrimary)
 letterMemberProperty   = flip (LetterMemberExpr False) <$> (dot *> letterIdentifier)
 letterComputedProperty = flip (LetterMemberExpr True)  <$> (between memberOpen memberClose letterExpr)
 
-letterArguments = between openParen closeParen (sepBy letterExpr comma)
+letterArguments = betweenParens (sepBy letterExpr comma)
 letterCallExpr = flip LetterCallExpr <$> letterArguments
 
 letterCallMemberExpr = letterChainHelper [letterMemberProperty, letterComputedProperty, letterCallExpr]
@@ -173,10 +175,22 @@ letterMemberExpr     = letterChainHelper [letterMemberProperty, letterComputedPr
 letterSuper = letterCallMemberExpr $ (LetterSuper <$ letterKeywordSuper) <**> letterCallExpr
 letterNew = LetterNew <$> (letterKeywordNew *> (letterMemberExpr letterPrimary)) <*> letterArguments
 
+letterLambdaExpr
+  =   LetterLambdaExpr
+  <$> (letterKeywordFn *> letterFunctionParameters <* lambdaArrow)
+  <*> (choice [letterBlock, letterExpr])
+
 letterChainHelper choices objectP = foldl (&) <$> objectP <*> (many $ choice choices)
 
-letterPrimary = choice [letterThis, letterNew, letterLiteral, letterIdentifier, letterParen]
-letterParen = between openParen closeParen letterExpr
+letterPrimary = choice
+  [ letterThis
+  , letterLambdaExpr
+  , letterNew
+  , letterLiteral
+  , letterIdentifier
+  , letterParen
+  ]
+letterParen = betweenParens letterExpr
 
 letterIdentifier = do
   identifier <- lexeme $ (:) <$> letter <*> many letterValidIdChars
@@ -211,8 +225,10 @@ closeBrace = lexeme $ char '}'
 dot = lexeme $ char '.'
 memberOpen = lexeme $ char '['
 memberClose = lexeme $ char ']'
+lambdaArrow = lexeme $ string "->"
 
 betweenBraces p = between openBrace closeBrace p
+betweenParens p = between openParen closeParen p
 
 toBinaryOp :: String -> Parser BinaryOp
 toBinaryOp "+"  = return Plus

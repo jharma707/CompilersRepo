@@ -18,6 +18,7 @@ data LetterAst
   | LetterMemberExpr          Bool LetterAst LetterAst
   | LetterCallExpr            LetterAst [LetterAst]
   | LetterThisExpr
+  | LetterLambdaExpr          [LetterAst] LetterAst
   | LetterSuper
   | LetterNew                 LetterAst [LetterAst]
   | LetterAssign              LetterAst LetterAst
