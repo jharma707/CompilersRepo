@@ -44,17 +44,17 @@ data UnaryOp
   deriving (Eq)
 
 instance Show BinaryOp where
-  show Plus = "+"
-  show Minus = "-"
-  show Multiply = "*"
-  show Divide = "/"
-  show Greater = ">"
+  show Plus      = "+"
+  show Minus     = "-"
+  show Multiply  = "*"
+  show Divide    = "/"
+  show Greater   = ">"
   show GreaterEq = ">="
-  show Less = "<"
-  show LessEq = "<="
-  show Equality = "=="
-  show And = "&&"
-  show Or = "||"
+  show Less      = "<"
+  show LessEq    = "<="
+  show Equality  = "=="
+  show And       = "&&"
+  show Or        = "||"
 
 instance Show UnaryOp where
   show Positive = "+"
