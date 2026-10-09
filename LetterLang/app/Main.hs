@@ -11,6 +11,6 @@ interpret source = do
   return $ interpretLetterAst ast
 
 main :: IO ()
-main = case parseLetter "if (true) { 34; } else { 69; }" of
+main = case parseLetter "if (true) { 45; 34; }" of
          (Left err) -> print err
          (Right res) -> print $ SExprPrinter res

@@ -16,7 +16,7 @@ instance Show SExprPrinter where
     printSeq = evalSeq >>> combineStrings
     evalSeq  = fmap printSExpr
 
-    printMaybeNode (Just astNode) = sexpr $ printSExpr astNode
+    printMaybeNode (Just astNode) = printSExpr astNode
     printMaybeNode Nothing        = sexpr ""
 
     printSExpr (LetterProgram program) = printSExpr program
@@ -25,11 +25,11 @@ instance Show SExprPrinter where
     printSExpr (LetterBool b) = if b then "true" else "false"
     printSExpr LetterNull = "null"
     printSExpr (LetterStatements stmts) = printSeq stmts
-    printSExpr (LetterBlock stmts) = printSeq stmts
+    printSExpr (LetterBlock stmts) =
+      sexprSeq ["begin", printSeq stmts]
     printSExpr LetterEmptyStatement = ""
-    printSExpr (LetterReturnStatement (Just ret)) =
-      sexprSeq ["return", printSExpr ret]
-    printSExpr (LetterReturnStatement Nothing) = sexpr "return"
+    printSExpr (LetterReturnStatement maybeRet) =
+      sexprSeq ["return", printMaybeNode maybeRet]
     printSExpr (LetterBinaryExpr op v1 v2) =
       sexprSeq [show op, printSExpr v1, printSExpr v2]
     printSExpr (LetterUnaryExpr op v) =
@@ -50,14 +50,12 @@ instance Show SExprPrinter where
     printSExpr (LetterLetDeclaration bindings) =
       let printBinding (name, maybeV) = sexprSeq [printSExpr name, printMaybeNode maybeV]
        in sexprSeq ["let", sexprSeq (printBinding <$> bindings)]
-    printSExpr (LetterIfStatement cond consequent (Just alternate)) =
-      sexprSeq $ ["if"] ++ (evalSeq [cond, consequent, alternate])
-    printSExpr (LetterIfStatement cond consequent Nothing) =
-      sexprSeq $ ["if"] ++ (evalSeq [cond, consequent])
+    printSExpr (LetterIfStatement cond consequent maybeAlternate) =
+      sexprSeq ["if", printSExpr cond, printSExpr consequent, printMaybeNode maybeAlternate]
     printSExpr (LetterWhileLoop cond body) =
-      sexprSeq $ ["while"] ++ (evalSeq [cond, body])
+      sexprSeq $ ["while"] <> (evalSeq [cond, body])
     printSExpr (LetterDoWhileLoop cond body) =
-      sexprSeq $ ["do-while"] ++ (evalSeq [cond, body])
+      sexprSeq $ ["do-while"] <> (evalSeq [cond, body])
     printSExpr (LetterForLoop maybeInit maybeCond maybeIncrement body) =
       sexprSeq
         [ "for"
