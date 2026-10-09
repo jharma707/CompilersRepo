@@ -57,7 +57,7 @@ letterKeywordNew         = keyword "new"
 letterKeywordConstructor = keyword "constructor"
 
 letterStatementList = LetterStatements <$> many1 letterStatement
-letterBlock = LetterBlock <$> (between openBrace closeBrace (many letterStatement))
+letterBlock = LetterBlock <$> (betweenBraces (many letterStatement))
 letterEmptyStatement = LetterEmptyStatement <$ semicolon
 
 letterStatement = choice
@@ -89,12 +89,12 @@ letterAssignment = simpleAssignment <|> letterBinary where
    case fst results of
      (LetterIdentifier _)     -> return $ (uncurry LetterAssign) results
      (LetterMemberExpr _ _ _) -> return $ (uncurry LetterAssign) results
-     _                     -> parserFail "Invalid left-hand side in assignment expression."
+     _                        -> parserFail "Invalid left-hand side in assignment expression."
 
 letterIfStatement = do
   condition  <- letterKeywordIf *> letterParen
-  consequent <- letterStatement
-  alternate  <- optionMaybe $ letterKeywordElse *> letterStatement
+  consequent <- letterBlock
+  alternate  <- optionMaybe $ letterKeywordElse *> letterBlock
   return $ LetterIfStatement condition consequent alternate
 
 letterWhileStatement = LetterWhileLoop <$> (letterKeywordWhile *> letterParen) <*> letterBlock
@@ -123,7 +123,7 @@ letterFunctionDeclaration
   <*> letterFunctionParameters
   <*> letterBlock
 
-letterClassBlock = LetterBlock <$> (between openBrace closeBrace (many letterClassStatement))
+letterClassBlock = LetterBlock <$> (betweenBraces (many letterClassStatement))
 
 letterClassStatement = choice
   [ letterFunctionDeclaration
@@ -136,7 +136,7 @@ letterClassDeclaration
   <$> (letterKeywordClass *> letterIdentifier)
   <*> ((maybeToList >>> join) <$> (optionMaybe letterFunctionParameters))
   <*> (optionMaybe (letterKeywordExtends *> letterIdentifier))
-  <*> letterClassBlock
+  <*> (optionMaybe letterClassBlock)
 
 letterConstructorDeclaration
   = LetterConstructor <$> (letterKeywordConstructor *> letterFunctionParameters) <*> letterBlock
@@ -211,6 +211,8 @@ closeBrace = lexeme $ char '}'
 dot = lexeme $ char '.'
 memberOpen = lexeme $ char '['
 memberClose = lexeme $ char ']'
+
+betweenBraces p = between openBrace closeBrace p
 
 toBinaryOp :: String -> Parser BinaryOp
 toBinaryOp "+"  = return Plus

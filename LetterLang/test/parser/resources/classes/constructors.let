@@ -16,3 +16,5 @@ class Pair2(first, second) {
     return first + second;
   }
 }
+
+class Pair3(first, second)

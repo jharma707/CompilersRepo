@@ -30,7 +30,7 @@ data LetterAst
   | LetterSequenceExpr        [LetterAst]
   | LetterFunctionDeclaration LetterAst [LetterAst] LetterAst
   | LetterConstructor         [LetterAst] LetterAst
-  | LetterClassDeclaration    LetterAst [LetterAst] (Maybe LetterAst) LetterAst
+  | LetterClassDeclaration    LetterAst [LetterAst] (Maybe LetterAst) (Maybe LetterAst)
   deriving (Show, Eq)
 
 data BinaryOp
