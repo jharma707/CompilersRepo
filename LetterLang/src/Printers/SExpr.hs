@@ -49,7 +49,7 @@ instance Show SExprPrinter where
     printSExpr (LetterIdentifier iden) = T.unpack iden
     printSExpr (LetterLetDeclaration bindings) =
       let printBinding (name, maybeV) = sexprSeq [printSExpr name, printMaybeNode maybeV]
-       in sexprSeq ["let", sexprSeq (printBinding <$> bindings)]
+       in sexprSeq ["let", combineStrings (printBinding <$> bindings)]
     printSExpr (LetterIfStatement cond consequent maybeAlternate) =
       sexprSeq ["if", printSExpr cond, printSExpr consequent, printMaybeNode maybeAlternate]
     printSExpr (LetterWhileLoop cond body) =

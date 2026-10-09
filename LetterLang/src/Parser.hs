@@ -8,6 +8,7 @@ import Control.Monad (void, join)
 import qualified Data.Text as T
 import Data.Function
 import Data.Maybe
+import Data.List (singleton)
 import Text.Parsec
 import Text.Parsec.Text (Parser)
 
@@ -48,12 +49,12 @@ letterKeywordNull        = keyword "null"
 letterKeywordWhile       = keyword "while"
 letterKeywordDo          = keyword "do"
 letterKeywordFor         = keyword "for"
+letterKeywordFn          = keyword "fn"
 letterKeywordDef         = keyword "def"
 letterKeywordReturn      = keyword "return"
 letterKeywordClass       = keyword "class"
 letterKeywordExtends     = keyword "extends"
 letterKeywordThis        = keyword "this"
-letterKeywordFn          = keyword "fn"
 letterKeywordSuper       = keyword "super"
 letterKeywordNew         = keyword "new"
 letterKeywordConstructor = keyword "constructor"
@@ -118,6 +119,7 @@ letterForStatement = do
 letterReturnStatement = LetterReturnStatement <$> (letterKeywordReturn *> (optionMaybe letterExpr) <* semicolon)
 
 letterFunctionParameters = betweenParens $ sepBy letterIdentifier comma
+letterSingleFunctionParameter = singleton <$> letterIdentifier
 
 letterFunctionDeclaration
   =   LetterFunctionDeclaration
@@ -177,15 +179,16 @@ letterNew = LetterNew <$> (letterKeywordNew *> (letterMemberExpr letterPrimary))
 
 letterLambdaExpr
   =   LetterLambdaExpr
-  <$> (letterKeywordFn *> letterFunctionParameters <* lambdaArrow)
-  <*> (choice [letterBlock, letterExpr])
+  <$> (letterKeywordFn *> lambdaParameterList <* lambdaArrow)
+  <*> (choice [letterBlock, letterExpr]) where
+    lambdaParameterList = letterFunctionParameters <|> letterSingleFunctionParameter
 
 letterChainHelper choices objectP = foldl (&) <$> objectP <*> (many $ choice choices)
 
 letterPrimary = choice
   [ letterThis
-  , letterLambdaExpr
   , letterNew
+  , letterLambdaExpr
   , letterLiteral
   , letterIdentifier
   , letterParen
