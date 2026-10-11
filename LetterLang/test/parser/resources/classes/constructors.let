@@ -18,3 +18,9 @@ class Pair2(first, second) {
 }
 
 class Pair3(first, second)
+
+class Pair4 extends Pair1 {
+  constructor(first, second) {
+    super(first, second);
+  }
+}

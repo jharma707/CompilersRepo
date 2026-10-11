@@ -26,7 +26,7 @@ instance Show SExprPrinter where
     printSExpr LetterNull = "null"
     printSExpr (LetterStatements stmts) = printSeq stmts
     printSExpr (LetterBlock stmts) =
-      sexprSeq ["begin", printSeq stmts]
+      if null stmts then sexpr "" else sexprSeq ["begin", printSeq stmts]
     printSExpr LetterEmptyStatement = ""
     printSExpr (LetterReturnStatement maybeRet) =
       sexprSeq ["return", printMaybeNode maybeRet]
@@ -37,7 +37,9 @@ instance Show SExprPrinter where
     printSExpr (LetterMemberExpr isComputed obj member) =
       sexprSeq [if isComputed then "[]" else ".", printSExpr obj, printSExpr member]
     printSExpr (LetterCallExpr f args) =
-      sexprSeq [printSExpr f, printSeq args]
+      if null args
+      then sexpr (printSExpr f)
+      else sexprSeq [printSExpr f, printSeq args]
     printSExpr LetterThisExpr = "this"
     printSExpr (LetterLambdaExpr args body) =
       sexprSeq ["lambda", sexpr (printSeq args), printSExpr body]
@@ -46,6 +48,8 @@ instance Show SExprPrinter where
       sexprSeq ["new", sexprSeq [printSExpr member, printSeq args]]
     printSExpr (LetterAssign l r) =
       sexprSeq ["=", printSExpr l, printSExpr r]
+    printSExpr (LetterIncrement assignable) =
+      sexprSeq ["++", printSExpr assignable]
     printSExpr (LetterIdentifier iden) = T.unpack iden
     printSExpr (LetterLetDeclaration bindings) =
       let printBinding (name, maybeV) = sexprSeq [printSExpr name, printMaybeNode maybeV]

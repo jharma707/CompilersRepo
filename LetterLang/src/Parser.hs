@@ -159,23 +159,29 @@ letterBinary = boolOr where
   term     = binary (opers ["+", "-"]) factor
   factor   = binary (opers ["*", "/"]) letterUnary
 
-letterUnary = unary <|> letterLeftExpr where
+letterUnary = unary <|> letterIncrement where
   unary = LetterUnaryExpr <$> (operators >>= toUnaryOp) <*> letterUnary
-  operators = opers ["-", "+", "!"]
+  operators = opers ["-", "!"]
 
-letterLeftExpr = letterSuper <|> (letterCallMemberExpr letterPrimary)
+letterIncrement = (LetterIncrement <$> (increment *> letterLeftExpr)) <|> letterLeftExpr
 
-letterMemberProperty   = flip (LetterMemberExpr False) <$> (dot *> letterIdentifier)
-letterComputedProperty = flip (LetterMemberExpr True)  <$> (between memberOpen memberClose letterExpr)
+letterLeftExpr = letterSuper <|> (letterCallMemberChain letterPrimary)
 
 letterArguments = betweenParens (sepBy letterExpr comma)
-letterCallExpr = flip LetterCallExpr <$> letterArguments
 
-letterCallMemberExpr = letterChainHelper [letterMemberProperty, letterComputedProperty, letterCallExpr]
-letterMemberExpr     = letterChainHelper [letterMemberProperty, letterComputedProperty]
+letterCallExpr     = flip LetterCallExpr <$> letterArguments
+letterMemberExpr   = flip (LetterMemberExpr False) <$> (dot *> letterIdentifier)
+letterComputedExpr = flip (LetterMemberExpr True)  <$> (between memberOpen memberClose letterExpr)
 
-letterSuper = letterCallMemberExpr $ (LetterSuper <$ letterKeywordSuper) <**> letterCallExpr
-letterNew = LetterNew <$> (letterKeywordNew *> (letterMemberExpr letterPrimary)) <*> letterArguments
+letterCallMemberChain = letterChainHelper [letterMemberExpr, letterComputedExpr, letterCallExpr]
+letterMemberChain     = letterChainHelper [letterMemberExpr, letterComputedExpr]
+
+letterSuper = choice [try superConstructor, superField] where
+  superConstructor = superParser <**> letterCallExpr
+  superField       = letterCallMemberChain $ superParser <**> letterMemberExpr
+  superParser      = LetterSuper <$ letterKeywordSuper
+
+letterNew = LetterNew <$> (letterKeywordNew *> (letterMemberChain letterPrimary)) <*> letterArguments
 
 letterLambdaExpr
   =   LetterLambdaExpr
@@ -218,17 +224,19 @@ whitespace = skipMany $ choice [skipMany1 space, letterLineComment]
 -- helper functions
 lexeme p = p <* whitespace
 opers ops = lexeme $ choice $ try . string <$> ops
-comma = lexeme $ char ','
-openParen = lexeme $ char '('
-closeParen = lexeme $ char ')'
-semicolon = lexeme $ char ';'
-assign = lexeme $ char '='
-openBrace = lexeme $ char '{'
-closeBrace = lexeme $ char '}'
-dot = lexeme $ char '.'
-memberOpen = lexeme $ char '['
+
+comma       = lexeme $ char ','
+openParen   = lexeme $ char '('
+closeParen  = lexeme $ char ')'
+semicolon   = lexeme $ char ';'
+assign      = lexeme $ char '='
+openBrace   = lexeme $ char '{'
+closeBrace  = lexeme $ char '}'
+dot         = lexeme $ char '.'
+memberOpen  = lexeme $ char '['
 memberClose = lexeme $ char ']'
 lambdaArrow = lexeme $ string "->"
+increment   = lexeme $ string "++"
 
 betweenBraces p = between openBrace closeBrace p
 betweenParens p = between openParen closeParen p
@@ -254,6 +262,5 @@ toBool literal = parserFail $ "unexpected boolean expression: " <> literal
 
 toUnaryOp :: String -> Parser UnaryOp
 toUnaryOp "-"  = return Negative
-toUnaryOp "+"  = return Positive
 toUnaryOp "!"  = return Negation
 toUnaryOp oper = parserFail $ "unexpected unary expression: " <> oper
