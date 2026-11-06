@@ -1,0 +1,15 @@
+class Base(x, y) {
+  def hello() {
+    return "hello, base";
+  }
+}
+
+class Derived extends Base {
+  constructor(x, y) {
+    super(x, y);
+  }
+
+  def hello() {
+    return super.hello() + " and derived";
+  }
+}
