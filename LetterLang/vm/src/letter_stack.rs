@@ -1,26 +1,24 @@
 use crate::letter_value::LetterValue;
+use crate::eval_err::EvaluationErr;
+use crate::eval_err::EvaluationErr::*;
 
 const LIMIT: usize = 512;
 
-pub struct LetterStack<'a> {
-    buffer: Box<[&'a LetterValue]>,
+#[derive(Debug)]
+pub struct LetterStack {
+    pub buffer: Box<[LetterValue]>,
     pointer: usize,
 }
 
-#[derive(Debug)]
-pub struct StackOverflow(pub &'static str);
-#[derive(Debug)]
-pub struct StackUnderflow(pub &'static str);
-
-impl<'a> LetterStack<'a> {
+impl LetterStack {
     pub fn new() -> Self {
         LetterStack {
-            buffer: vec![&LetterValue::None; LIMIT].into_boxed_slice(),
+            buffer: vec![LetterValue::None; LIMIT].into_boxed_slice(),
             pointer: 0,
         }
     }
 
-    pub fn push(&mut self, val: &'a LetterValue) -> Result<(), StackOverflow> {
+    pub fn push(&mut self, val: LetterValue) -> Result<(), EvaluationErr> {
         if self.pointer == LIMIT { return Err(StackOverflow("push(): StackOverflow")) }
 
         self.buffer[self.pointer] = val;
@@ -28,10 +26,10 @@ impl<'a> LetterStack<'a> {
         Ok(())
     }
 
-    pub fn pop(&mut self) -> Result<&'a LetterValue, StackUnderflow> {
+    pub fn pop(&mut self) -> Result<&LetterValue, EvaluationErr> {
         if self.pointer == 0 { return Err(StackUnderflow("pop(): StackUnderflow")) }
 
         self.pointer -= 1;
-        Ok(self.buffer[self.pointer])
+        Ok(&self.buffer[self.pointer])
     }
 }
