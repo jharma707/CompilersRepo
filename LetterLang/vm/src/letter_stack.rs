@@ -18,18 +18,18 @@ impl LetterStack {
         }
     }
 
-    pub fn push(&mut self, val: LetterValue) -> Result<(), EvaluationErr> {
+    pub fn push(&mut self, val: &LetterValue) -> Result<(), EvaluationErr> {
         if self.pointer == LIMIT { return Err(StackOverflow("push(): StackOverflow")) }
 
-        self.buffer[self.pointer] = val;
+        self.buffer[self.pointer] = val.clone();
         self.pointer += 1;
         Ok(())
     }
 
-    pub fn pop(&mut self) -> Result<&LetterValue, EvaluationErr> {
+    pub fn pop(&mut self) -> Result<LetterValue, EvaluationErr> {
         if self.pointer == 0 { return Err(StackUnderflow("pop(): StackUnderflow")) }
 
         self.pointer -= 1;
-        Ok(&self.buffer[self.pointer])
+        Ok(self.buffer[self.pointer].clone())
     }
 }

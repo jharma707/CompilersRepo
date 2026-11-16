@@ -17,8 +17,8 @@ pub struct Evaluator<'a> {
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn eval(&mut self) -> Result<&LetterValue, EvaluationErr> {
-        if self.byte_code.is_empty() { return Ok(&LetterValue::None) }
+    pub fn eval(&mut self) -> Result<LetterValue, EvaluationErr> {
+        if self.byte_code.is_empty() { return Ok(LetterValue::None) }
 
         // the instruction counter
         let mut ic = 0;
@@ -34,7 +34,7 @@ impl<'a> Evaluator<'a> {
                     let constant_index = self.byte_code[ic];
                     let constant = self.constant_pool[constant_index as usize];
 
-                    self.stack.push(constant.clone())?;
+                    self.stack.push(constant)?;
                     ic = ic + 1;
                 },
                 OP_ADD  => { self.binary_op_number(|op1, op2| op1 + op2)?; }
@@ -49,14 +49,14 @@ impl<'a> Evaluator<'a> {
     fn binary_op_number<F>(&mut self, f: F) -> Result<LetterValue, EvaluationErr>
         where F: FnOnce(i32, i32) -> i32
     {
-        let LetterValue::Number(op2) = self.stack.pop()?.clone() else {
+        let LetterValue::Number(op2) = self.stack.pop()? else {
             return Err(NotANumber)
         };
-        let LetterValue::Number(op1) = self.stack.pop()?.clone() else {
+        let LetterValue::Number(op1) = self.stack.pop()? else {
             return Err(NotANumber)
         };
         let result = LetterValue::Number(f(op1, op2));
-        self.stack.push(result.clone())?;
+        self.stack.push(&result)?;
         Ok(result)
     }
 }
